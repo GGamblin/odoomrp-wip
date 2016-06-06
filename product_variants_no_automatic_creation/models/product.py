@@ -55,7 +55,7 @@ class ProductTemplate(models.Model):
         [('yes', "Don't create them automatically"),
          ('no', "Create them automatically"),
          ('empty', 'Use the category value')],
-        string='Variant creation', required=True, default='empty',
+        string='Variant creation', required=True, default='no',
         help="This selection defines if variants for all attribute "
              "combinations are going to be created automatically at saving "
              "time.")
@@ -77,9 +77,11 @@ class ProductTemplate(models.Model):
             self.create_variant_ids()
         return res
 
-    def _get_product_attributes_dict(self):
+    @api.multi
+    def _get_product_tmpl_and_attributes_dict(self):
+        self.ensure_one()
         return self.attribute_line_ids.mapped(
-            lambda x: {'attribute': x.attribute_id.id})
+            lambda x: {'attribute': x.attribute_id.id, 'product_template_id': self.id})
 
     @api.multi
     def create_variant_ids(self):
@@ -90,23 +92,33 @@ class ProductTemplate(models.Model):
                 return super(ProductTemplate, self).create_variant_ids()
             else:
                 return True
-
+    
     @api.multi
     def action_open_attribute_prices(self):
-        price_obj = self.env['product.attribute.price']
+        self.ensure_one()
+        
+        price_ds = self.env['product.attribute.price']
         for line in self.attribute_line_ids:
             for value in line.value_ids:
-                prices = price_obj.search([('product_tmpl_id', '=', self.id),
+                prices = price_ds.search([('product_tmpl_id', '=', self.id),
                                            ('value_id', '=', value.id)])
                 if not prices:
-                    price_obj.create({
+                    prices = price_ds.create({
                         'product_tmpl_id': self.id,
                         'value_id': value.id,
                     })
+                
+                price_ds |= prices
+        
+        all_template_prices = self.env['product.attribute.price']. \
+            search([('product_tmpl_id', '=', self.id)])
+        remove_prices = all_template_prices - price_ds
+        remove_prices.unlink()
+        
         result = self._get_act_window_dict(
             'product_variants_no_automatic_creation.attribute_price_action')
         return result
-
+    
     @api.model
     def name_search(self, name='', args=None, operator='ilike', limit=100):
         # Make a search with default criteria
@@ -130,9 +142,9 @@ class ProductTemplate(models.Model):
 class ProductProduct(models.Model):
     _inherit = 'product.product'
 
-    def _get_product_attributes_values_dict(self):
+    def _get_procurement_attribute_line_dict(self):
         # Retrieve first the attributes from template to preserve order
-        res = self.product_tmpl_id._get_product_attributes_dict()
+        res = self.product_tmpl_id._get_product_tmpl_and_attributes_dict()
         for val in res:
             value = self.attribute_value_ids.filtered(
                 lambda x: x.attribute_id.id == val['attribute'])
@@ -144,6 +156,7 @@ class ProductProduct(models.Model):
             lambda x: "%s: %s" % (x.attribute_id.name, x.name))
         return "%s\n%s" % (self.product_tmpl_id.name, "\n".join(description))
 
+    @api.model
     def _product_find(self, product_template, product_attributes):
         domain = []
         if product_template:
@@ -158,7 +171,7 @@ class ProductProduct(models.Model):
                     value_id = attr_line.value.id
                 if value_id and len(product_template.attribute_line_ids.search(
                         [('product_tmpl_id', '=', product_template.id),
-                         ('attribute_id', '=', attribute_id)]).value_ids) > 1:
+                         ('attribute_id', '=', attribute_id)]).value_ids) >= 1:
                     domain.append(('attribute_value_ids', '=', value_id))
                     attr_values.append(value_id)
             products = self.search(domain)
@@ -183,3 +196,4 @@ class ProductAttributePrice(models.Model):
 
     attribute = fields.Many2one(comodel_name='product.attribute',
                                 related='value_id.attribute_id')
+

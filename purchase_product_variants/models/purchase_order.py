@@ -24,7 +24,7 @@ class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
     @api.multi
-    def wkf_confirm_order(self):
+    def button_confirm(self):
         """Create possible product variants not yet created."""
         for order in self:
             for line in order.order_line:
@@ -48,44 +48,19 @@ class PurchaseOrder(models.Model):
                         {'product_tmpl_id': line.product_template.id,
                          'attribute_value_ids': [(6, 0, att_values_ids)]})
                 line.write({'product_id': product.id})
-        return super(PurchaseOrder, self).wkf_confirm_order()
-
-
-class ProductAttributeValuePurchaseLine(models.Model):
-    _name = 'purchase.order.line.attribute'
-
-    purchase_line = fields.Many2one(
-        comodel_name='purchase.order.line', string='Order line')
-    attribute = fields.Many2one(
-        comodel_name='product.attribute', string='Attribute')
-    possible_values = fields.Many2many(
-        comodel_name='product.attribute.value',
-        compute='_get_possible_attribute_values', readonly=True)
-    value = fields.Many2one(
-        comodel_name='product.attribute.value', string='Value',
-        domain="[('id', 'in', possible_values[0][2])]")
-
-    @api.one
-    @api.depends('attribute',
-                 'purchase_line.product_template',
-                 'purchase_line.product_template.attribute_line_ids')
-    def _get_possible_attribute_values(self):
-        attr_values = self.env['product.attribute.value']
-        for attr_line in \
-                self.purchase_line.product_template.attribute_line_ids:
-            if attr_line.attribute_id.id == self.attribute.id:
-                attr_values |= attr_line.value_ids
-        self.possible_values = attr_values.sorted()
+        return super(PurchaseOrder, self).button_confirm()
 
 
 class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
 
     product_template = fields.Many2one(
-        comodel_name='product.template', string='Product Template')
-    product_attributes = fields.One2many(
-        comodel_name='purchase.order.line.attribute',
-        inverse_name='purchase_line', string='Product attributes', copy=True)
+        comodel_name='product.template', string='Product Template',
+        required=True, domain=[('purchase_ok','=',True)])
+    product_id = fields.Many2one(
+        domain="[('product_tmpl_id', '=', product_template)]")
+    product_attributes = fields.Many2many(
+        comodel_name='procurement.attribute.line', string="Product Attributes")
     order_state = fields.Selection(
         related='order_id.state', readonly=True)
 
@@ -103,6 +78,15 @@ class PurchaseOrderLine(models.Model):
     def onchange_product_template(self):
         self.ensure_one()
         res = {}
+        if not self.product_template:
+            self.product_id = False
+            self.product_uom = False
+            self.price_unit = 0.0
+            self.name = ""
+            self.product_attributes = False
+            self.tax_id = False
+            return res
+        
         product_attributes = []
         if not self.product_template.attribute_line_ids:
             self.product_id = (
@@ -111,10 +95,8 @@ class PurchaseOrderLine(models.Model):
         if (self.product_id and self.product_id not in
                 self.product_template.product_variant_ids):
             self.product_id = False
-        for attribute in self.product_template.attribute_line_ids:
-            product_attributes.append({'attribute':
-                                       attribute.attribute_id})
-        self.product_attributes = product_attributes
+        self.product_attributes = \
+            self.product_template._get_product_tmpl_and_attributes_dict()
         self.name = self.product_template.name
         self.product_uom = self.product_template.uom_po_id
         # Get planned date and min quantity
@@ -151,11 +133,11 @@ class PurchaseOrderLine(models.Model):
                     self.product_qty = min_qty
         if not self.date_planned:
             dt = fields.Datetime.to_string(
-                self._get_date_planned(supplierinfo, self.order_id.date_order))
+                self._get_date_planned(supplierinfo, po=self.order_id))
             self.date_planned = dt
         # Get taxes
         taxes = self.product_template.supplier_taxes_id
-        self.taxes_id = self.order_id.fiscal_position.map_tax(taxes)
+        self.taxes_id = self.order_id.fiscal_position_id.map_tax(taxes)
         res['domain'] = {'product_id': [('product_tmpl_id', '=',
                                          self.product_template.id)]}
         return res
@@ -175,24 +157,13 @@ class PurchaseOrderLine(models.Model):
                 self.product_template, False,
                 self.product_attributes.mapped('value'))
 
-    @api.multi
-    def onchange_product_id(
-            self, pricelist_id, product_id, qty, uom_id, partner_id,
-            date_order=False, fiscal_position_id=False, date_planned=False,
-            name=False, price_unit=False, state='draft'):
-        res = super(PurchaseOrderLine, self).onchange_product_id(
-            pricelist_id, product_id, qty, uom_id, partner_id,
-            date_order=date_order, fiscal_position_id=fiscal_position_id,
-            date_planned=date_planned, name=name, price_unit=price_unit,
-            state=state)
-        if product_id:
-            product_obj = self.env['product.product']
-            product = product_obj.browse(product_id)
-            attributes = [(0, 0, x) for x in
-                          product._get_product_attributes_values_dict()]
-            res['value'].update(
-                {'product_attributes': attributes,
-                 'product_template': product.product_tmpl_id.id})
+    @api.onchange('product_id')
+    def onchange_product_id(self):
+        res = super(PurchaseOrderLine, self).onchange_product_id()
+        if self.product_id:
+            product_attributes = [(0, 0, x) for x in
+                          self.product_id._get_procurement_attribute_line_dict()]
+            self.product_attributes = (product_attributes)
         return res
 
     @api.multi
@@ -217,3 +188,4 @@ class PurchaseOrderLine(models.Model):
                 raise UserError(
                     _("You can not confirm before configuring all attribute "
                       "values."))
+

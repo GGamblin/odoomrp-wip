@@ -16,20 +16,20 @@
 #
 ##############################################################################
 
-from openerp import models, fields
+from openerp import api, models, fields, exceptions, _
 
 
 class ProductAttribute(models.Model):
     _inherit = 'product.attribute'
 
-    parent_inherited = fields.Boolean('Inherits from parent')
+    parent_inherited = fields.Boolean('Inherits from parent', default=True)
 
 
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
     def _get_product_attributes_inherit_dict(self, product_attribute_list):
-        product_attributes = self._get_product_attributes_dict()
+        product_attributes = self._get_product_tmpl_and_attributes_dict()
         for attr in product_attributes:
             if self.env['product.attribute'].browse(
                     attr['attribute']).parent_inherited:
@@ -37,3 +37,17 @@ class ProductTemplate(models.Model):
                     if attr_line.attribute.id == attr['attribute']:
                         attr.update({'value': attr_line.value.id})
         return product_attributes
+    
+    @api.multi
+    def _get_inherit_value_list(self, proc_lines):
+        self.ensure_one()
+        
+        value_list = []
+        for attr_line in self.attribute_line_ids:
+            proc_line = proc_lines.filtered(lambda l: l.attribute == attr_line.attribute_id)
+            if not proc_line:
+                raise exceptions.Warning(_('Could not find procurement line for attribute.'))
+            value_list.append(proc_line.value)
+        
+        return value_list
+

@@ -23,6 +23,7 @@
         "product",
         "purchase",
         "product_variants_no_automatic_creation",
+        "procurement_attribute_line",
     ],
     "author": "OdooMRP team,"
               "AvanzOSC,"
@@ -37,9 +38,8 @@
     "website": "http://www.odoomrp.com",
     "summary": "",
     "data": [
-        "security/ir.model.access.csv",
         "views/purchase_view.xml",
     ],
-    'installable': False,
+    'installable': True,
     "post_init_hook": "assign_product_template",
 }

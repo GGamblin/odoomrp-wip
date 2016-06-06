@@ -21,6 +21,8 @@
     "version": "1.0",
     "depends": [
         "product",
+        "product_variants_no_automatic_creation",
+        "procurement_attribute_line",
     ],
     "author": "OdooMRP team,"
               "AvanzOSC,"
@@ -36,5 +38,5 @@
     'data': [
         "views/product_view.xml",
     ],
-    'installable': False,
+    'installable': True,
 }
