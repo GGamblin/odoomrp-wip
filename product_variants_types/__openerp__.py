@@ -35,6 +35,6 @@
     "category": "Hidden/Dependency",
     "summary": "",
     "data": [],
-    'installable': False,
+    'installable': True,
     "auto_install": True,
 }
