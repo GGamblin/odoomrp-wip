@@ -10,7 +10,7 @@
                 <button string="Variant Prices" position="attributes">
                     <attribute name="invisible">1</attribute>
                 </button>
-                <button string="Variant Prices" position="after">
+                <button name="%(product_attribute_value_action)d" position="after">
                     <button class="oe_inline oe_stat_button" name="action_open_attribute_prices"
                         icon="fa-strikethrough" type="object" string="Variant Prices">
                     </button>
