@@ -46,7 +46,7 @@
             </field>
         </record>
 
-        <record model="ir.ui.view" id="sale_order_line_extended_form_view">
+        <!--record model="ir.ui.view" id="sale_order_line_extended_form_view">
             <field name="name">sale.order.line.extended.form</field>
             <field name="model">sale.order.line</field>
             <field name="inherit_id" ref="sale.view_order_line_form2" />
@@ -61,7 +61,7 @@
                     />
                 </field>
             </field>
-        </record>
+        </record-->
 
         <record model="ir.ui.view" id="sale_order_line_extended_tree_view">
             <field name="name">sale.order.line.extended.tree</field>
@@ -83,7 +83,7 @@
                 <field name="product_id" position="after">
                     <field name="product_tmpl_id" />
                 </field>
-                <filter string="Product" position="after">
+                <field name="salesman_id" position="after">
                     <filter string="Template" name="search_template"
                             icon="terp-accessories-archiver"
                             domain="[]"
