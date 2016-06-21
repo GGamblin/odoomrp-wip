@@ -17,7 +17,7 @@
                 <xpath expr="//field[@name='order_line']" position="attributes">
                     <attribute name="options">{'reload_on_button': true}</attribute>
                 </xpath>
-                <xpath expr="//field[@name='order_line']/tree//field[@name='price_subtotal']"
+                <!--xpath expr="//field[@name='order_line']/tree//field[@name='price_subtotal']"
                        position="after">
                     <field name="order_state" invisible="1"/>
                     <button name="action_duplicate"
@@ -27,7 +27,7 @@
                             icon="STOCK_COPY"
                             attrs="{'invisible': [('order_state', 'not in', ['draft', 'sent'])]}"
                             help="Duplicate line" />
-                </xpath>
+                </xpath-->
                 <xpath expr="//field[@name='order_line']/form//field[@name='product_id']"
                        position="before">
                     <field name="product_tmpl_id" />
@@ -46,7 +46,7 @@
             </field>
         </record>
 
-        <record model="ir.ui.view" id="sale_order_line_extended_form_view">
+        <!--record model="ir.ui.view" id="sale_order_line_extended_form_view">
             <field name="name">sale.order.line.extended.form</field>
             <field name="model">sale.order.line</field>
             <field name="inherit_id" ref="sale.view_order_line_form2" />
@@ -61,7 +61,7 @@
                     />
                 </field>
             </field>
-        </record>
+        </record-->
 
         <record model="ir.ui.view" id="sale_order_line_extended_tree_view">
             <field name="name">sale.order.line.extended.tree</field>
@@ -83,12 +83,12 @@
                 <field name="product_id" position="after">
                     <field name="product_tmpl_id" />
                 </field>
-                <filter string="Product" position="after">
+                <field name="salesman_id" position="after">
                     <filter string="Template" name="search_template"
                             icon="terp-accessories-archiver"
                             domain="[]"
                             context="{'group_by':'product_tmpl_id'}" />
-                </filter>
+                </field>
             </field>
         </record>
     </data>
